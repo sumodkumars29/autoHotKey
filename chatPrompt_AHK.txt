@@ -1,0 +1,459 @@
+
+#Requires AutoHotkey v2.0
+
+#SingleInstance Force
+
+; ========= NEOVIM ONLY =========
+
+IsNvimInWindowsTerminal() {
+    if !WinActive("ahk_exe WindowsTerminal.exe")
+        return false
+
+    title := WinGetTitle("A")
+    return RegExMatch(title, "i)nvim")
+}
+
+HotIf (*) => IsNvimInWindowsTerminal()
+
+; ===============================================
+
+; ================= CONFIG ======================
+maxKeys := 30
+idleMs  := 5000
+logFile := A_ScriptDir "\keys.log"
+
+keys := []
+idleTimer := 0
+modeTimeline := []  ; array of objects: {mode, keyIndex}
+modeTimeline.Push({ mode: "NORMAL", keyIndex: 1 })
+keyIndex := 0
+<h1>This is sample text.<\h1>
+currentMode := "NORMAL"
+
+pendingOperator := "",  ; "", "c", "d", "y"
+opTimerMs := 1000       ; operator window
+
+lastInsertKey := ""
+lastInsertTick := 0
+comboWindowMs := 1000
+lastNormalKey := ""
+
+; ===============================================
+
+; ================= OPERATOR TIMEOUT (HARD RESET) ======================
+ClearPendingOperator() {
+  global pendingOperator
+  pendingOperator := ""
+}
+; ===============================================
+
+; ================= NORMAL -> INSERT DETECTOR ======================
+HandleNormalToInsert(key) {
+  global currentMode, pendingOperator, opTimerMs, lastNormalKey
+  if currentMode != "NORMAL"
+    return false
+
+  ; ---- Unambiguous INSERT (single key) ----
+  if (key ~= "^[IAO]$") { ; I, A and O
+    SetMode("INSERT")
+    pendingOperator := ""
+    lastNormalKey := ""
+    return true
+  }
+
+  ; ---- Line / replace variants ----
+  if (key = "C" || key = "R") {
+    SetMode("INSERT")
+    pendingOperator := ""
+    lastNormalKey := ""
+    return true
+  }
+
+  ; ---- Operator starter -----
+  if (key = "c") {
+    ; detect cc
+    if (lastNormalKey = "c") {
+      setMode("INSERT")
+      pendingOperator := ""
+      lastNormalKey := ""
+      return true
+    }
+    pendingOperator := "c"
+    lastNormalKey := "c"
+    SetTimer(ClearPendingOperator, 0)
+    SetTimer(ClearPendingOperator, -opTimerMs)
+    return false
+  }
+
+  ; ---- Ambiguous i / a ----
+  if (key = "i" || key = "a") {
+    if (pendingOperator = "d" || pendingOperator = "y") {
+      pendingOperator := ""
+      lastNormalKey := ""
+      return false
+    }
+    setMode("INSERT")
+    pendingOperator := ""
+    lastNormalKey := ""
+    return true
+  }
+
+  ; --- Anything else ---
+  pendingOperator := ""
+  lastNormalKey := ""
+  return false
+}
+
+; ==================================================
+
+; ================== INSERT TO NORMAL DETECTOR ==============
+HandleInsertToNormal_Immediate(key) {
+  global currentMode
+
+  if (currentMode != "INSERT")
+    return false
+
+  if (key = "<Esc>" || key = "<C-[>") {
+    SetMode("NORMAL")
+    return true
+  }
+
+  return false
+}
+
+; ------------------------ INSERT TO NORMAL COMBO KEYS DETECTOR -------------------------------------
+Handle_ToNormal_Combo(key) {
+global currentMode, lastInsertKey, lastInsertTick, comboWindowMs, modeTimeline
+  if (currentMode != "INSERT")
+    return false
+
+  now := A_TickCount
+
+  if (
+    (lastInsertKey = "j" && key = "k")
+    || (lastInsertKey = "k" && key = "j")
+  ) {
+    if (now - lastInsertTick <= comboWindowMs) {
+      SetMode("NORMAL", keyIndex + 1)
+      lastInsertKey := ""
+      lastInsertTick := 0
+      return true
+    }
+  }
+  ; update tracking
+  lastInsertKey := key
+  lastInsertTick := now
+  return false
+}
+
+; ==================================================
+
+
+; ================== NORMAL TO VISUAL DETECTOR ==============
+HandleNormalToVisual(key) {
+  global currentMode
+  if (currentMode != "NORMAL")
+    return false
+  if (key = "v" || key = "V" || key = "<C-v>") {
+    setMode("VISUAL")
+    return true
+  }
+  return false
+}
+; ==================================================
+
+; ================== VISUAL TO NORMAL DETECTOR ==============
+HandleVisualToNormal(key) {
+  global currentMode
+  if (currentMode != "VISUAL")
+    return false
+  if (key = "<Esc>" || key = "v") {
+    setMode("NORMAL")
+    return true
+  }
+  return false
+}
+; ==================================================
+
+; ================== CENTRALIZED MODE SWITCHING ==============
+
+SetMode(newMode, effectiveIndex := "") {
+  global currentMode, modeTimeline, keyIndex
+  if (currentMode = newMode)
+    return
+  if (effectiveIndex = "")
+    effectiveIndex := keyIndex + 1
+  currentMode := newMode
+  modeTimeline.Push({ mode: newMode, keyIndex: effectiveIndex })
+}
+
+; ==================================================
+
+; outside any function
+shiftMap := Map()
+
+shiftMap["1"] := "!"
+shiftMap["2"] := "@"
+shiftMap["3"] := "#"
+shiftMap["4"] := "$"
+shiftMap["5"] := "%"
+shiftMap["6"] := "^"
+shiftMap["7"] := "&"
+shiftMap["8"] := "*"
+shiftMap["9"] := "("
+shiftMap["0"] := ")"
+shiftMap["-"] := "_"
+shiftMap["="] := "+"
+shiftMap["["] := "{"
+shiftMap["]"] := "}"
+shiftMap["\"] := "|"
+shiftMap[";"] := ":"
+shiftMap["'"] := '"'
+shiftMap[","] := "<"
+shiftMap["."] := ">"
+shiftMap["/"] := "?"
+
+; ---------- CORE LOGGER ----------
+LogKey(char, *) {
+    global keys, maxKeys, idleMs, idleTimer, keyIndex
+
+    keyIndex++
+
+    time := FormatTime(, "HH:mm:ss")
+    entry := { index: keyIndex, time: time, char: char }
+    keys.Push(entry)
+
+    if (keys.Length > maxKeys)
+        keys.RemoveAt(1)
+
+    ; reset one-shot timer
+    SetTimer(FlushKeys, 0)
+    SetTimer(FlushKeys, -idleMs)
+}
+
+
+FlushKeys() {
+    global keys, logFile, modeTimeline
+
+    if (keys.Length = 0)
+        return
+
+    FileAppend("---- burst ----`n", logFile)
+
+    ; Find starting mode
+    startIndex := keys[1].index
+    activeMode := "UNKNOWN"
+
+    for m in modeTimeline {
+      if (m.keyIndex <= startIndex)
+        activeMode := m.mode
+      else
+        break
+    }
+
+    FileAppend("<MODE: " activeMode ">`n", logFile)
+
+    timelinePos := 1
+    while (
+        timelinePos <= modeTimeline.Length
+        && modeTimeline[timelinePos].keyIndex < startIndex
+    ) {
+        timelinePos++
+    }
+
+    for k in keys {
+      ; advance mode if needed
+      while (
+        timelinePos <= modeTimeline.Length && modeTimeline[timelinePos].keyIndex = k.index
+      ) {
+        activeMode := modeTimeline[timelinePos].mode
+        FileAppend("<MODE: " activeMode ">`n", logFile)
+        timelinePos++
+      }
+      FileAppend(k.time " | " k.char "`n", logFile)
+    }
+    FileAppend("<MODE: " currentMode ">`n", logFile) 
+    FileAppend("`n", logFile)
+
+    keys := []   ; reset buffer after flush
+    ; lastLoggedMode := ""  ; force mode header next time
+}
+; ----------------------------------
+
+; ---------- LETTERS ----------
+for k in StrSplit("abcdefghijklmnopqrstuvwxyz") {
+    Hotkey "~*" k, LogLetter.Bind(k)
+}
+
+LogLetter(key, *) {
+
+    shifted := GetKeyState("Shift", "P")
+    char := shifted ? StrUpper(key) : key
+
+    ; INSERT or VISUAL -> NORMAL detection
+    LogKey(char)
+    ; VISUAL exits first
+    HandleVisualToNormal(char)
+    ; INSERT exits
+    Handle_ToNormal_Combo(char)
+    ; VISUAL entry
+    HandleNormalToVisual(char)
+    ; INSERT entry
+    HandleNormalToInsert(char)
+}
+; ---------------------------------
+
+; ---------- NUMBERS & SYMBOLS ----------
+for k in StrSplit("1234567890") {
+    Hotkey "~*" k, LogPhysical.Bind(k)
+}
+
+for k in ["-", "=", "[", "]", "\", ";", "'", ",", ".", "/"] {
+    Hotkey "~*" k, LogPhysical.Bind(k)
+}
+
+LogPhysical(key, *) {
+    global shiftMap
+    shifted := GetKeyState("Shift", "P")
+    char := shifted ? shiftMap.Get(key, key) : key
+    LogKey(char)
+    HandleNormalToInsert(char)
+}
+; ----------------------------------------
+
+; ---------- SPECIAL KEYS ----------
+Hotkey "~*Space",     (*) => LogKey("<Space>")
+Hotkey "~*Enter",     (*) => LogKey("<Enter>")
+Hotkey "~*Backspace", (*) => LogKey("<BS>")
+Hotkey "~*Tab",       (*) => LogKey("<Tab>")
+Hotkey "~*Ctrl",      (*) => LogKey("<Ctrl>")
+Hotkey "~*Alt",       (*) => LogKey("<Alt>")
+Hotkey "~*LWin",      (*) => LogKey("<Win>")
+Hotkey "~*RWin",      (*) => LogKey("<Win>")
+
+; ---------------------------------
+Hotkey "~*Escape", (*) => (
+  HandleVisualToNormal("<Esc>"),
+  HandleInsertToNormal_Immediate("<Esc>"),
+  LogKey("<Esc>")
+)
+
+
+Hotkey "~*^[", (*) => (
+  HandleInsertToNormal_Immediate("<C-[>"),
+  LogKey("<C-[>")
+)
+
+HotIf
+
+This is the code we have built to log key pressed in Neovim.
+As you can see we are logging every key press in keys[] and flushing them after 5 seconds of inactivity.
+We have also set up a crude mode logging system. 
+As you know, in the 30 keys logged in key[], it is possible that the first 5 keys were captured in Normal mode, the 5th key is what triggered INSERT mode, and the 15th key may trigger back to NORMAL mode. The 16th may trigger VISUAL and the 25th will put us back in INSERT or NORMAL mode,
+We need to be able see which mode each key was pressed in.
+We do have a setup that captures the modes but needs heavy refinement.
+So we came up with the idea create sets/array/lists (given below) that will help us track what is happening.
+This is what we are focusing on specifically, Normal to Insert changes.
+These are the lists we came up with.
+OPERATORS        = { g, c, d, y }
+COUNTS           = { 0–9 }
+DIRECT_MOTIONS   = { c h j k l w b e W B E $ ^ 0 }
+MOTION_STARTERS  = { i a f F t T }
+IMMEDIATE_INSERT = { i I a A o O C R r S }
+
+Now this is the logic I came up with.
+This is just logic, not code, so ignore the structure and syntax, just focus on the logic.
+HandleNormalToInsert(key) {
+  global OPERATORS, COUNTS, DIRECT_MOTIONS, MOTION_STARTERS, IMMEDIATE_INSERT, lastLoggedKey
+
+  motion := ""
+  count := "" 
+
+  if lastLoggedKey != "c or d or y or g":
+    if key = IMMEDIATE_INSERT:
+      setMode("INSERT")
+      reset local variables
+      return true
+
+  if lastLoggedKey = "d or y":
+    lastLoggedKey := key
+    reset local variables
+    return false
+
+  if lastLoggedKey = "g":
+    if key = "i or I":
+      lastLoggedKey := key
+      setMode("INSERT")
+      reset local variables
+      return true
+
+  if lastLoggedKey = "c":
+
+    if key = COUNTS:
+      if count = "" & key = 0:
+      lastLoggedKey := key
+      setMode("INSERT")
+      reset local variables
+      return true
+    else:
+      count := key ;we do not change the lastLoggedKey
+      return
+  
+    if key = MOTION_STARTERS & motion != ""
+      lastLoggedKey := key
+      setMode("INSERT")
+      reset local variables
+      return true
+    else:
+      motion := key ;we do not change the lastLoggedKey
+      return
+
+    if key = DIRECT_MOTIONS:
+      lastLoggedKey := key
+      setMode("INSERT")
+      reset local variables
+      return true
+
+  else:
+      lastLoggedKey := key
+      reset local variables
+      return true
+
+}
+
+I  missing uations, test C
+This is a test line.
+test `have` created.
+Testing "for quote"
+Fine tested.
+This ( {test more refining} )
+Test
+testing ciw
+Testing 'o'
+Test for c0
+Test for c0
+Test {test}
+we n like
+we n like
+this is to < rest >
+space
+Checking 5 and 5 logs
+
+    if key = MOTION_STARTERS & motion != "This is a test"
+      lastLoggedKey := key
+      setMode("VISUAL")
+local variables
+      return "true"
+    else:
+LoggedKey
+      return
+There is to `trial` "tesses
+
+      <This is> To test if tags </work>
+      This is to test c0
+      and to see when it changes from VISUAL to NORMAL
+      Now it should be in NORMAL mode.
+
+
+
+
