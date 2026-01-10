@@ -14,7 +14,7 @@
 
 
 IsSaveFileDialog() {
-  return WinActive("ahk_class CabinetWClass")
+  return WinActive("ahk_class CabinetWClass") || WinActive("ahk_class #32770")
 }
 
 #HotIf IsSaveFileDialog()

@@ -1,6 +1,4 @@
-
 #Requires AutoHotkey v2.0
-
 #SingleInstance Force
 
 ; ========= NEOVIM ONLY =========
@@ -27,9 +25,8 @@ idleTimer := 0
 modeTimeline := []  ; array of objects: {mode, keyIndex}
 modeTimeline.Push({ mode: "NORMAL", keyIndex: 1 })
 keyIndex := 0
-<h1>This is sample text.<\h1>
-currentMode := "NORMAL"
 
+currentMode := "NORMAL"
 pendingOperator := "",  ; "", "c", "d", "y"
 opTimerMs := 1000       ; operator window
 
@@ -38,6 +35,63 @@ lastInsertTick := 0
 comboWindowMs := 1000
 lastNormalKey := ""
 
+pendingOperator := "" ; "", "c", "d", "y", "g"
+pendingCount := ""  ; "", "2", "10", etc.
+pendingMotion := "" ; "", "i", "a", "f", "t", ...
+pendingCtrl := false
+
+OPERATORS := Map(
+  "c", true,
+  "d", true,
+  "y", true,
+  "g", true
+)
+
+DIRECT_MOTIONS := Map(
+  "h", true, "j", true, "k", true, "l", true,
+  "w", true, "b", true, "e", true,
+  "W", true, "B", true, "E", true,
+  "$", true, "^", true, "0", true
+)
+
+MOTION_STARTERS := Map(
+  "i", true, "a", true,
+  "f", true, "F", true,
+  "t", true, "T", true,
+  "s", true
+)
+
+IMMEDIATE_INSERT := Map(
+  "i", true, "I", true,
+  "a", true, "A", true,
+  "o", true, "O", true,
+  "C", true, "R", true, "r", true
+)
+
+COUNTS := Map(
+  "0", true, "1", true, "2", true, "3", true, "4", true,
+  "5", true, "6", true, "7", true, "8", true, "9", true
+)
+
+; MOTION_COMPLETIONS := Map(
+;   "i", Array("w","W","b","B","(",")","{","}","[","]","<",">","`"","'","``"),
+;   "a", Array("w","W","b","B","(",")","{","}","[","]","<",">","`"","'","``")
+; )
+
+
+MOTION_COMPLETIONS := Map(
+  "i", Map("w",1,"W",1,"b",1,"B",1,"p",1,"(",1,")",1,"{",1,"}",1,"[",1,"]",1,">",1,"<",1,"`"",1,"'",1,"``",1),
+  "a", Map("w",1,"W",1,"b",1,"B",1,"p",1,"(",1,")",1,"{",1,"}",1,"[",1,"]",1,">",1,"<",1,"`"",1,"'",1,"``",1)
+)
+; ===============================================
+
+; ================= RESET TRACKER VARIABLES ======================
+resetPendingTrackers() {
+  global pendingOperator, pendingCount, pendingMotion
+  pendingOperator := "" 
+  pendingCount := ""  
+  pendingMotion := "" 
+}
 ; ===============================================
 
 ; ================= OPERATOR TIMEOUT (HARD RESET) ======================
@@ -49,71 +103,136 @@ ClearPendingOperator() {
 
 ; ================= NORMAL -> INSERT DETECTOR ======================
 HandleNormalToInsert(key) {
-  global currentMode, pendingOperator, opTimerMs, lastNormalKey
+  global currentMode, pendingOperator, pendingCount, pendingMotion, pendingCtrl
+  global OPERATORS, COUNTS, DIRECT_MOTIONS, IMMEDIATE_INSERT, MOTION_STARTERS, MOTION_COMPLETIONS
+
   if currentMode != "NORMAL"
-    return false
+    return FALSE
 
-  ; ---- Unambiguous INSERT (single key) ----
-  if (key ~= "^[IAO]$") { ; I, A and O
+  if (key = "<Esc>" || key = "<C-[>") {
+    resetPendingTrackers()
+    return FALSE
+  }
+
+  if (key = "<C-o>") {
+    resetPendingTrackers()
+    return FALSE
+  }
+
+  if (key = "d" && pendingOperator = "d") {
+    resetPendingTrackers()
+    return FALSE
+   }
+
+  ; --------------- -IMMEDIATE INSERT (no pending operator) ----------------
+  if (pendingOperator = "" && IMMEDIATE_INSERT.Has(key)) {
     SetMode("INSERT")
-    pendingOperator := ""
-    lastNormalKey := ""
-    return true
+    resetPendingTrackers()
+    return TRUE
   }
 
-  ; ---- Line / replace variants ----
-  if (key = "C" || key = "R") {
+  if (key = "c" && pendingMotion = "" && pendingOperator = "c") {
     SetMode("INSERT")
-    pendingOperator := ""
-    lastNormalKey := ""
-    return true
+    resetPendingTrackers()
+    return TRUE
+   }
+
+  ; if the motion is this - >  g{i, I}
+  if (pendingOperator = "g" && (key = "i" || key = "I")) {
+    SetMode("INSERT")
+    resetPendingTrackers()
+    return TRUE
   }
 
-  ; ---- Operator starter -----
-  if (key = "c") {
-    ; detect cc
-    if (lastNormalKey = "c") {
-      setMode("INSERT")
-      pendingOperator := ""
-      lastNormalKey := ""
-      return true
+
+  ; ---------------- COMPLETE PENDING MOTION ----------------
+  ; cfx / ctx / cix / cax / cFx / cTx -> this key completes the motion and triggers INSERT mode
+
+  if (pendingOperator != "" && pendingMotion = "s") {
+    resetPendingTrackers()
+    return FALSE
+  }
+
+  if (pendingMotion != "") {
+    if (pendingOperator = "c") {
+      ; for i and a
+      if (MOTION_COMPLETIONS.Has(pendingMotion) && MOTION_COMPLETIONS[pendingMotion].Has(key)) {
+      ; if (MOTION_COMPLETIONS.Has(pendingMotion)) {
+      ;   for _, v in MOTION_COMPLETIONS[pendingMotion]{
+      ;     if (v = key) {
+        SetMode("INSERT")
+        resetPendingTrackers()
+        return TRUE
+        }
+      else if (pendingMotion = 'f' || pendingMotion = 'F' || pendingMotion = 't' || pendingMotion = 'T'){
+        ; for f, F, t and T
+        SetMode("INSERT")
+        resetPendingTrackers()
+        return FALSE
+      }
     }
-    pendingOperator := "c"
-    lastNormalKey := "c"
-    SetTimer(ClearPendingOperator, 0)
-    SetTimer(ClearPendingOperator, -opTimerMs)
-    return false
+    ; d / y / g operators -> no INSERT
+    resetPendingTrackers()
+    return FALSE
   }
 
-  ; ---- Ambiguous i / a ----
-  if (key = "i" || key = "a") {
-    if (pendingOperator = "d" || pendingOperator = "y") {
-      pendingOperator := ""
-      lastNormalKey := ""
-      return false
+  ; ---------------- OPERATOR START ----------------
+  if (OPERATORS.Has(key)) {
+    pendingOperator := key
+    pendingCount := ""
+    pendingMotion := ""
+    return FALSE
+  }
+
+  ; ---------------- COUNT ACCUMULTION ----------------
+  if (COUNTS.Has(key)) {
+    ; bare 0 is motion, not count
+    if (key != 0 || pendingCount != "") {
+      pendingCount .= key
+      return FALSE
     }
-    setMode("INSERT")
-    pendingOperator := ""
-    lastNormalKey := ""
-    return true
+    ; else fall through -> treat 0 as motion
   }
 
-  ; --- Anything else ---
-  pendingOperator := ""
-  lastNormalKey := ""
-  return false
+  ; ---------------- MOTION STARTERS (NEED ONE MORE KEY) ----------------
+  if (MOTION_STARTERS.Has(key) && pendingOperator != "") {
+    pendingMotion := key
+    return FALSE
+  }
+
+  ; ---------------- DIRECT MOTIONS ----------------
+  if (DIRECT_MOTIONS.Has(key)) {
+    if (pendingOperator = "c") {
+      SetMode("INSERT")
+      resetPendingTrackers()
+      return TRUE
+    }
+
+    ; d/y/g motions
+    resetPendingTrackers()
+    return FALSE
+  }
+  
+  ; ---------------- FALLBACK ----------------
+  resetPendingTrackers()
+  return FALSE
 }
 
 ; ==================================================
 
-; ================== INSERT TO NORMAL DETECTOR ==============
-HandleInsertToNormal_Immediate(key) {
+; ================== INSERT/VISUAL TO NORMAL DETECTOR ==============
+Handle_ToNormal_Immediate(key) {
   global currentMode
 
-  if (currentMode != "INSERT")
+  if (currentMode != "INSERT" && currentMode != "VISUAL")
     return false
 
   if (key = "<Esc>" || key = "<C-[>") {
+    SetMode("NORMAL")
+    return true
+  }
+
+  if (currentMode = "VISUAL" && key = "v") {
     SetMode("NORMAL")
     return true
   }
@@ -122,17 +241,14 @@ HandleInsertToNormal_Immediate(key) {
 }
 
 ; ------------------------ INSERT TO NORMAL COMBO KEYS DETECTOR -------------------------------------
-Handle_ToNormal_Combo(key) {
+Handle_InsertToNormal_Combo(key) {
 global currentMode, lastInsertKey, lastInsertTick, comboWindowMs, modeTimeline
   if (currentMode != "INSERT")
     return false
 
   now := A_TickCount
 
-  if (
-    (lastInsertKey = "j" && key = "k")
-    || (lastInsertKey = "k" && key = "j")
-  ) {
+  if ( lastInsertKey = "j" && key = "k") {
     if (now - lastInsertTick <= comboWindowMs) {
       SetMode("NORMAL", keyIndex + 1)
       lastInsertKey := ""
@@ -148,6 +264,29 @@ global currentMode, lastInsertKey, lastInsertTick, comboWindowMs, modeTimeline
 
 ; ==================================================
 
+; ------------------------ VISUAL TO NORMAL COMBO KEYS DETECTOR -------------------------------------
+Handle_VisualToNormal_Combo(key) {
+global currentMode, lastInsertKey, lastInsertTick, comboWindowMs, modeTimeline
+  if (currentMode != "VISUAL")
+    return false
+
+  now := A_TickCount
+
+  if (lastInsertKey = "k" && key = "j") {
+    if (now - lastInsertTick <= comboWindowMs) {
+      SetMode("NORMAL", keyIndex + 1)
+      lastInsertKey := ""
+      lastInsertTick := 0
+      return true
+    }
+  }
+  ; update tracking
+  lastInsertKey := key
+  lastInsertTick := now
+  return false
+}
+
+; ==================================================
 
 ; ================== NORMAL TO VISUAL DETECTOR ==============
 HandleNormalToVisual(key) {
@@ -163,16 +302,16 @@ HandleNormalToVisual(key) {
 ; ==================================================
 
 ; ================== VISUAL TO NORMAL DETECTOR ==============
-HandleVisualToNormal(key) {
-  global currentMode
-  if (currentMode != "VISUAL")
-    return false
-  if (key = "<Esc>" || key = "v") {
-    setMode("NORMAL")
-    return true
-  }
-  return false
-}
+; HandleVisualToNormal(key) {
+;   global currentMode
+;   if (currentMode != "VISUAL")
+;     return false
+;   if (key = "<Esc>" || key = "v") {
+;     setMode("NORMAL")
+;     return true
+;   }
+;   return false
+; }
 ; ==================================================
 
 ; ================== CENTRALIZED MODE SWITCHING ==============
@@ -292,14 +431,17 @@ LogLetter(key, *) {
 
     ; INSERT or VISUAL -> NORMAL detection
     LogKey(char)
-    ; VISUAL exits first
-    HandleVisualToNormal(char)
-    ; INSERT exits
-    Handle_ToNormal_Combo(char)
-    ; VISUAL entry
+    ; to NORMAL from INSERT or VISUAL
+    Handle_ToNormal_Immediate(char)
+    ; VISUAL to NORMAL combo
+    Handle_VisualToNormal_Combo(char)
+    ; INSERT to NORMAL combo
+    Handle_InsertToNormal_Combo(char)
+    ;NORMAL to VISUAL
     HandleNormalToVisual(char)
-    ; INSERT entry
+    ; NORMAL to INSERT
     HandleNormalToInsert(char)
+
 }
 ; ---------------------------------
 
@@ -317,6 +459,7 @@ LogPhysical(key, *) {
     shifted := GetKeyState("Shift", "P")
     char := shifted ? shiftMap.Get(key, key) : key
     LogKey(char)
+    HandleNormalToVisual(char)
     HandleNormalToInsert(char)
 }
 ; ----------------------------------------
@@ -333,160 +476,23 @@ Hotkey "~*RWin",      (*) => LogKey("<Win>")
 
 ; ---------------------------------
 Hotkey "~*Escape", (*) => (
-  HandleVisualToNormal("<Esc>"),
-  HandleInsertToNormal_Immediate("<Esc>"),
-  LogKey("<Esc>")
+  LogKey("<Esc>"),
+  Handle_ToNormal_Immediate("<Esc>")
+  ; HandleInsertToNormal_Immediate("<Esc>"),
 )
 
 
 Hotkey "~*^[", (*) => (
-  HandleInsertToNormal_Immediate("<C-[>"),
-  LogKey("<C-[>")
+  ; HandleInsertToNormal_Immediate("<C-[>"),
+  LogKey("<C-[>"),
+  Handle_ToNormal_Immediate("<C-[>")
+)
+
+Hotkey "~*^o", (*) => (
+  ; HandleInsertToNormal_Immediate("<C-[>"),
+  LogKey("<C-o>"),
+  HandleNormalToInsert("<C-o>")
 )
 
 HotIf
 
-This is the code we have built to log key pressed in Neovim.
-As you can see we are logging every key press in keys[] and flushing them after 5 seconds of inactivity.
-We have also set up a crude mode logging system. 
-As you know, in the 30 keys logged in key[], it is possible that the first 5 keys were captured in Normal mode, the 5th key is what triggered INSERT mode, and the 15th key may trigger back to NORMAL mode. The 16th may trigger VISUAL and the 25th will put us back in INSERT or NORMAL mode,
-We need to be able see which mode each key was pressed in.
-We do have a setup that captures the modes but needs heavy refinement.
-So we came up with the idea create sets/array/lists (given below) that will help us track what is happening.
-This is what we are focusing on specifically, Normal to Insert changes.
-These are the lists we came up with.
-OPERATORS        = { g, c, d, y }
-COUNTS           = { 0–9 }
-DIRECT_MOTIONS   = { c h j k l w b e W B E $ ^ 0 }
-MOTION_STARTERS  = { i a f F t T }
-IMMEDIATE_INSERT = { i I a A o O C R r S }
-
-Now this is the logic I came up with.
-This is just logic, not code, so ignore the structure and syntax, just focus on the logic.
-HandleNormalToInsert(key) {
-  global OPERATORS, COUNTS, DIRECT_MOTIONS, MOTION_STARTERS, IMMEDIATE_INSERT, lastLoggedKey
-
-  motion := ""
-  count := "" 
-
-  if lastLoggedKey != "c or d or y or g":
-    if key = IMMEDIATE_INSERT:
-      setMode("INSERT")
-      reset local variables
-      return true
-
-  if lastLoggedKey = "d or y":
-    lastLoggedKey := key
-    reset local variables
-    return false
-
-  if lastLoggedKey = "g":
-    if key = "i or I":
-      lastLoggedKey := key
-      setMode("INSERT")
-      reset local variables
-      return true
-
-  if lastLoggedKey = "c":
-
-    if key = COUNTS:
-      if count = "" & key = 0:
-      lastLoggedKey := key
-      setMode("INSERT")
-      reset local variables
-      return true
-    else:
-      count := key ;we do not change the lastLoggedKey
-      return
-  
-    if key = MOTION_STARTERS & motion != ""
-      lastLoggedKey := key
-      setMode("INSERT")
-      reset local variables
-      return true
-    else:
-      motion := key ;we do not change the lastLoggedKey
-      return
-
-    if key = DIRECT_MOTIONS:
-      lastLoggedKey := key
-      setMode("INSERT")
-      reset local variables
-      return true
-
-  else:
-      lastLoggedKey := key
-      reset local variables
-      return true
-
-}
-This < "testing" >
-lets test.
-This is "a test line."
-Testing "test qupte" {this is} ctrl+o
-
-
-testing_Hello
-testing_Fine. test
-testing_This (testing)
-testing_Test this [This is brace test]
-testing_testing
-testing_Testing 'o'
-testing_test
-testing_Test for c0
-testing_Test {for braces}
-testing_we n like
-testing_we n like
-testing_this is to < rest >
-testing_space
-
-Hello
-Fine. test
-This (testing)
-Test this [This is `hello` test]
-testing
-Testing 'test'
-test
-Test for c0
-Test {for braces}
-we n like
-we n like
-testing ctrl 0
-this is to < rest >
-space
-
-(klThis is a test"
-      lastLoggedKey test:= key
-      setMode("VISUAL")
-      testing if o works
-local test variables
-      return "TRUE"
-    else:
-LoggedKey
-      return
-deleted to `s` "tesses
-
-       {This is a test
-      [  test Test paragraph]
-      "test Test para" ttest
-       test Test para\}}  
-
-      {This is a para
-      to test} 
-
-      {( test Test para )
-      "test Test para"
-      "test Test para"
-       test Test para} 
-
-This is also a test
-( Handle_ToNormal_Immediate(key)
-Handle_InsertToNormal_Combo(key)
-HandleNormalToVisual(key)
-Handle_VisualToNormal_Combo(key)
-HandleVisualToNormal(key) )
-
-
-This is a new line
-(This is a new line)
-This is a new line
