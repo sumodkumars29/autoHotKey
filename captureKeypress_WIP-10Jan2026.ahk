@@ -49,7 +49,7 @@ OPERATORS := Map(
 
 DIRECT_MOTIONS := Map(
   "h", true, "j", true, "k", true, "l", true,
-  "w", true, "b", true, "e", true,
+  "w", true, "b", true, "e", true, "G", true,
   "W", true, "B", true, "E", true,
   "$", true, "^", true, "0", true
 )
@@ -58,7 +58,7 @@ MOTION_STARTERS := Map(
   "i", true, "a", true,
   "f", true, "F", true,
   "t", true, "T", true,
-  "s", true
+  "s", true, "g", true
 )
 
 IMMEDIATE_INSERT := Map(
@@ -80,8 +80,9 @@ COUNTS := Map(
 
 
 MOTION_COMPLETIONS := Map(
-  "i", Map("w",1,"W",1,"b",1,"B",1,"p",1,"(",1,")",1,"{",1,"}",1,"[",1,"]",1,">",1,"<",1,"`"",1,"'",1,"``",1),
-  "a", Map("w",1,"W",1,"b",1,"B",1,"p",1,"(",1,")",1,"{",1,"}",1,"[",1,"]",1,">",1,"<",1,"`"",1,"'",1,"``",1)
+  "i", Map("w",1,"W",1,"b",1,"B",1,"p",1,"s",1,"(",1,")",1,"{",1,"}",1,"[",1,"]",1,">",1,"<",1,"`"",1,"'",1,"``",1),
+  "a", Map("w",1,"W",1,"b",1,"B",1,"p",1,"s",1,"(",1,")",1,"{",1,"}",1,"[",1,"]",1,">",1,"<",1,"`"",1,"'",1,"``",1),
+  "g", Map("0",1,"^",1,"_",1,"$",1,"g",1,"j",1,"k",1,"e",1,"E",1,"w",1,"W",1,"o",1)
 )
 ; ===============================================
 
@@ -101,7 +102,13 @@ ClearPendingOperator() {
 }
 ; ===============================================
 
-; ================= NORMAL -> INSERT DETECTOR ======================
+; ================= NORMAL -> INSERT DETECTOR ======================; ========= NORMAL/INSERT MODE TRACKING (FROZEN v1.0) =========
+; Last reviewed: [10 Jan 2026]
+; Coverage: ~95% of personal use cases
+; Known exclusions: Insert-mode helpers (completion, registers),
+;                   g operators beyond gi/gI (handled separately),
+;                   Virtual replace (to be handled with Replace modes)
+
 HandleNormalToInsert(key) {
   global currentMode, pendingOperator, pendingCount, pendingMotion, pendingCtrl
   global OPERATORS, COUNTS, DIRECT_MOTIONS, IMMEDIATE_INSERT, MOTION_STARTERS, MOTION_COMPLETIONS
@@ -148,10 +155,10 @@ HandleNormalToInsert(key) {
   ; ---------------- COMPLETE PENDING MOTION ----------------
   ; cfx / ctx / cix / cax / cFx / cTx -> this key completes the motion and triggers INSERT mode
 
-  if (pendingOperator != "" && pendingMotion = "s") {
-    resetPendingTrackers()
-    return FALSE
-  }
+  ; if (pendingOperator != "" && pendingMotion = "s") {
+  ;   resetPendingTrackers()
+  ;   return FALSE
+  ; }
 
   if (pendingMotion != "") {
     if (pendingOperator = "c") {
@@ -176,6 +183,14 @@ HandleNormalToInsert(key) {
     return FALSE
   }
 
+; ---------------- MOTION STARTERS (NEED ONE MORE KEY) ----------------
+  if (MOTION_STARTERS.Has(key) && pendingOperator != "") {
+    pendingMotion := key
+    return FALSE
+  }
+
+
+
   ; ---------------- OPERATOR START ----------------
   if (OPERATORS.Has(key)) {
     pendingOperator := key
@@ -194,25 +209,19 @@ HandleNormalToInsert(key) {
     ; else fall through -> treat 0 as motion
   }
 
-  ; ---------------- MOTION STARTERS (NEED ONE MORE KEY) ----------------
-  if (MOTION_STARTERS.Has(key) && pendingOperator != "") {
-    pendingMotion := key
-    return FALSE
-  }
-
   ; ---------------- DIRECT MOTIONS ----------------
   if (DIRECT_MOTIONS.Has(key)) {
     if (pendingOperator = "c") {
       SetMode("INSERT")
-      resetPendingTrackers()
-      return TRUE
+        resetPendingTrackers()
+        return TRUE
     }
 
     ; d/y/g motions
     resetPendingTrackers()
     return FALSE
   }
-  
+
   ; ---------------- FALLBACK ----------------
   resetPendingTrackers()
   return FALSE
@@ -227,7 +236,7 @@ Handle_ToNormal_Immediate(key) {
   if (currentMode != "INSERT" && currentMode != "VISUAL")
     return false
 
-  if (key = "<Esc>" || key = "<C-[>") {
+  if (key = "<Esc>" || key = "<C-[>" || key = "<C-c>") {
     SetMode("NORMAL")
     return true
   }
@@ -351,6 +360,7 @@ shiftMap["'"] := '"'
 shiftMap[","] := "<"
 shiftMap["."] := ">"
 shiftMap["/"] := "?"
+shiftMap["``"] := "~"
 
 ; ---------- CORE LOGGER ----------
 LogKey(char, *) {
@@ -450,7 +460,7 @@ for k in StrSplit("1234567890") {
     Hotkey "~*" k, LogPhysical.Bind(k)
 }
 
-for k in ["-", "=", "[", "]", "\", ";", "'", ",", ".", "/"] {
+for k in ["-", "=", "[", "]", "\", ";", "'", ",", ".", "/", "``"] {
     Hotkey "~*" k, LogPhysical.Bind(k)
 }
 
@@ -486,6 +496,12 @@ Hotkey "~*^[", (*) => (
   ; HandleInsertToNormal_Immediate("<C-[>"),
   LogKey("<C-[>"),
   Handle_ToNormal_Immediate("<C-[>")
+)
+
+Hotkey "~*^c", (*) => (
+  ; HandleInsertToNormal_Immediate("<C-[>"),
+  LogKey("<C-c>"),
+  Handle_ToNormal_Immediate("<C-c>")
 )
 
 Hotkey "~*^o", (*) => (

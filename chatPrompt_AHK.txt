@@ -1,4 +1,8 @@
 
+tsting.
+
+
+
 #Requires AutoHotkey v2.0
 
 #SingleInstance Force
@@ -455,7 +459,10 @@ testing ctrl 0
 this is to < rest >
 space
 
+testing.
+This is also atest
 (klThis is a test"
+This is one more test
       lastLoggedKey test:= key
       setMode("VISUAL")
       testing if o works
@@ -479,14 +486,30 @@ deleted to `s` "tesses
       "test Test para"
        test Test para} 
 
-This is also a test
+{ This is also a test
 ( Handle_ToNormal_Immediate(key)
-Handle_InsertToNormal_Combo(key)
+This will handle cg_.
 HandleNormalToVisual(key)
 Handle_VisualToNormal_Combo(key)
-HandleVisualToNormal(key) )
+HandleVisualToNormal(key) ) }
 
+
+testing.
 
 This is a new line
 (This is a new line)
 This is a new line
+
+New line
+This is testing for ctrl-c
+If it fails, test.
+that deleted 2 lines. test HandleNormalToInsert this. test
+
+
+The test
+
+We have to run a few more tests. [This is a line to test cis like key combos.] 
+If it fails, there is more work to do.
+This is a new line that will {be used.}
+This `works` tell me what <C-c> does.
+"If not, well, there is still more work to do!!"
