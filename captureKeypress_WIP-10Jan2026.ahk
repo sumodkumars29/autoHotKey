@@ -442,15 +442,20 @@ LogLetter(key, *) {
     ; INSERT or VISUAL -> NORMAL detection
     LogKey(char)
     ; to NORMAL from INSERT or VISUAL
-    Handle_ToNormal_Immediate(char)
+    if (Handle_ToNormal_Immediate(char))
+      return
     ; VISUAL to NORMAL combo
-    Handle_VisualToNormal_Combo(char)
+    if (Handle_VisualToNormal_Combo(char))
+      return
     ; INSERT to NORMAL combo
-    Handle_InsertToNormal_Combo(char)
+    if (Handle_InsertToNormal_Combo(char))
+      return
     ;NORMAL to VISUAL
-    HandleNormalToVisual(char)
+    if (HandleNormalToVisual(char))
+      return
     ; NORMAL to INSERT
-    HandleNormalToInsert(char)
+    if (HandleNormalToInsert(char))
+      return
 
 }
 ; ---------------------------------
@@ -469,8 +474,10 @@ LogPhysical(key, *) {
     shifted := GetKeyState("Shift", "P")
     char := shifted ? shiftMap.Get(key, key) : key
     LogKey(char)
-    HandleNormalToVisual(char)
-    HandleNormalToInsert(char)
+    if (HandleNormalToVisual(char))
+      return
+    if (HandleNormalToInsert(char))
+      return
 }
 ; ----------------------------------------
 
@@ -487,7 +494,8 @@ Hotkey "~*RWin",      (*) => LogKey("<Win>")
 ; ---------------------------------
 Hotkey "~*Escape", (*) => (
   LogKey("<Esc>"),
-  Handle_ToNormal_Immediate("<Esc>")
+  if (Handle_ToNormal_Immediate("<Esc>"))
+    return
   ; HandleInsertToNormal_Immediate("<Esc>"),
 )
 
@@ -495,19 +503,22 @@ Hotkey "~*Escape", (*) => (
 Hotkey "~*^[", (*) => (
   ; HandleInsertToNormal_Immediate("<C-[>"),
   LogKey("<C-[>"),
-  Handle_ToNormal_Immediate("<C-[>")
+  if (Handle_ToNormal_Immediate("<C-[>"))
+    return
 )
 
 Hotkey "~*^c", (*) => (
   ; HandleInsertToNormal_Immediate("<C-[>"),
   LogKey("<C-c>"),
-  Handle_ToNormal_Immediate("<C-c>")
+  if (Handle_ToNormal_Immediate("<C-c>"))
+    return
 )
 
 Hotkey "~*^o", (*) => (
   ; HandleInsertToNormal_Immediate("<C-[>"),
   LogKey("<C-o>"),
-  HandleNormalToInsert("<C-o>")
+  if (HandleNormalToInsert("<C-o>"))
+    return
 )
 
 HotIf
