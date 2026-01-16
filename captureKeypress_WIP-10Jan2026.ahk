@@ -27,7 +27,6 @@ modeTimeline.Push({ mode: "NORMAL", keyIndex: 1 })
 keyIndex := 0
 
 currentMode := "NORMAL"
-pendingOperator := "",  ; "", "c", "d", "y"
 opTimerMs := 1000       ; operator window
 
 lastInsertKey := ""
@@ -96,10 +95,10 @@ resetPendingTrackers() {
 ; ===============================================
 
 ; ================= OPERATOR TIMEOUT (HARD RESET) ======================
-ClearPendingOperator() {
-  global pendingOperator
-  pendingOperator := ""
-}
+; ClearPendingOperator() {
+;   global pendingOperator
+;   pendingOperator := ""
+; }
 ; ===============================================
 
 ; ================= NORMAL -> INSERT DETECTOR ======================; ========= NORMAL/INSERT MODE TRACKING (FROZEN v1.0) =========
@@ -494,8 +493,7 @@ Hotkey "~*RWin",      (*) => LogKey("<Win>")
 ; ---------------------------------
 Hotkey "~*Escape", (*) => (
   LogKey("<Esc>"),
-  if (Handle_ToNormal_Immediate("<Esc>"))
-    return
+  Handle_ToNormal_Immediate("<Esc>")
   ; HandleInsertToNormal_Immediate("<Esc>"),
 )
 
@@ -503,22 +501,19 @@ Hotkey "~*Escape", (*) => (
 Hotkey "~*^[", (*) => (
   ; HandleInsertToNormal_Immediate("<C-[>"),
   LogKey("<C-[>"),
-  if (Handle_ToNormal_Immediate("<C-[>"))
-    return
+  Handle_ToNormal_Immediate("<C-[>")
 )
 
 Hotkey "~*^c", (*) => (
   ; HandleInsertToNormal_Immediate("<C-[>"),
   LogKey("<C-c>"),
-  if (Handle_ToNormal_Immediate("<C-c>"))
-    return
+  Handle_ToNormal_Immediate("<C-c>")
 )
 
 Hotkey "~*^o", (*) => (
   ; HandleInsertToNormal_Immediate("<C-[>"),
   LogKey("<C-o>"),
-  if (HandleNormalToInsert("<C-o>"))
-    return
+  HandleNormalToInsert("<C-o>")
 )
 
 HotIf
