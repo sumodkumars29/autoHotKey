@@ -49,8 +49,8 @@ OPERATORS := Map(
 DIRECT_MOTIONS := Map(
   "h", true, "j", true, "k", true, "l", true,
   "w", true, "b", true, "e", true, "G", true,
-  "W", true, "B", true, "E", true,
-  "$", true, "^", true, "0", true
+  "W", true, "B", true, "E", true, "{", true,
+  "$", true, "^", true, "0", true, "}", true
 )
 
 MOTION_STARTERS := Map(
@@ -229,6 +229,7 @@ HandleNormalToInsert(key) {
 ; ==================================================
 
 ; ================== INSERT/VISUAL TO NORMAL DETECTOR ==============
+
 Handle_ToNormal_Immediate(key) {
   global currentMode
 
@@ -248,7 +249,10 @@ Handle_ToNormal_Immediate(key) {
   return false
 }
 
-; ------------------------ INSERT TO NORMAL COMBO KEYS DETECTOR -------------------------------------
+; ==================================================
+
+; ======================== INSERT TO NORMAL COMBO KEYS DETECTOR ========================
+
 Handle_InsertToNormal_Combo(key) {
 global currentMode, lastInsertKey, lastInsertTick, comboWindowMs, modeTimeline
   if (currentMode != "INSERT")
@@ -272,7 +276,8 @@ global currentMode, lastInsertKey, lastInsertTick, comboWindowMs, modeTimeline
 
 ; ==================================================
 
-; ------------------------ VISUAL TO NORMAL COMBO KEYS DETECTOR -------------------------------------
+; ======================== VISUAL TO NORMAL COMBO KEYS DETECTOR ========================
+
 Handle_VisualToNormal_Combo(key) {
 global currentMode, lastInsertKey, lastInsertTick, comboWindowMs, modeTimeline
   if (currentMode != "VISUAL")
@@ -297,6 +302,7 @@ global currentMode, lastInsertKey, lastInsertTick, comboWindowMs, modeTimeline
 ; ==================================================
 
 ; ================== NORMAL TO VISUAL DETECTOR ==============
+
 HandleNormalToVisual(key) {
   global currentMode
   if (currentMode != "NORMAL")
@@ -307,6 +313,7 @@ HandleNormalToVisual(key) {
   }
   return false
 }
+
 ; ==================================================
 
 ; ================== VISUAL TO NORMAL DETECTOR ==============

@@ -1,0 +1,71 @@
+:e $VIMRUNTIME/lua/vim/hl.lua
+; vanilla nvim -> open the file "hl.lua" located at C:\Program Files\Neovim\share/nvim/runtime/lua/vim
+; if such a file does not exist, one is created
+
+
+:lua print(vim.api.nvim_buf_get_name(0))
+-- use the above command to get the full path to the file being edited/focused
+
+
+:echo $VIMRUNTIME -> C:\Program Files\Neovim\share/nvim/runtime
+
+:lua print(vim.env.VIMRUNTIME) -> C:\Program Files\Neovim\share/nvim/runtime
+
+:execute 'edit ' .. vim.env.VIMRUNTIME .. '/lua/vim/highlight.lua'
+
+
+
+:echo join(split(&runtimepath, ','), "\n")
+OR
+:lua print(table.concat(vim.opt.runtimepath:get(), "\n"))
+
+10:04:11 AM msg_show.echo   echo join(split(&runtimepath, ','), "\n") C:\Users\S10DIGITAL\AppData\Local\nvim
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\lazy.nvim
+C:/Users/S10DIGITAL/AppData/Local/nvim-data/lazy/substitute.nvim
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\nvim-surround
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\nvim-ts-context-commentstring
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\Comment.nvim
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\conform.nvim
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\lazydev.nvim
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\nvim-lsp-file-operations
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\cmp-nvim-lsp
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\nvim-lint
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\indent-blankline.nvim
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\nvim-ts-autotag
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\nvim-autopairs
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\friendly-snippets
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\cmp_luasnip
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\LuaSnip
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\cmp-path
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\lspkind.nvim
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\cmp-buffer
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\nvim-cmp
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\nvim-treesitter
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\flash.nvim
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\dressing.nvim
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\nvim-notify
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\nui.nvim
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\noice.nvim
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\which-key.nvim
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\alpha-nvim
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\move-lines.nvim
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\vim-tmux-navigator
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\nvim-lspconfig
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\lualine.nvim
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\telescope-fzf-native.nvim
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\plenary.nvim
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\telescope.nvim
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\mason.nvim
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\nvim-web-devicons
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\nvim-tree.lua
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\tokyonight.nvim
+C:\Program Files\Neovim\share\nvim\runtime
+C:\Program Files\Neovim\share\nvim\runtime\pack\dist\opt\matchit
+C:\Program Files\Neovim\lib\nvim
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\readme
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\cmp-nvim-lsp\after
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\indent-blankline.nvim\after
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\cmp_luasnip\after
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\cmp-path\after
+C:\Users\S10DIGITAL\AppData\Local\nvim-data\lazy\cmp-buffer\after
+
