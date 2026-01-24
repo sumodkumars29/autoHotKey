@@ -1,6 +1,6 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Force
-; 10Jan
+;22Jan
 ; ========= NEOVIM ONLY =========
 
 IsNvimInWindowsTerminal() {
@@ -83,12 +83,12 @@ COUNTS := Map(
 
 MOTION_COMPLETIONS := Map(
 	"i", Map("w", 1, "W", 1, "b", 1, "B", 1, "p", 1, "s", 1, "(", 1, ")", 1, "{", 1, "}", 1, "[", 1, "]", 1, ">", 1, "<", 1, "`"", 1, "'", 1, "``", 1),
-	"a", Map("w", 1, "W", 1, "b", 1, "B", 1, "p", 1, "s", 1, "(", 1, ")", 1, "{", 1, "}", 1, "[", 1, "]", 1, ">", 1, "<", 1, "`"", 1, "'", 1, "``", 1),
+	"a", Map("w", 1, "W", 1, "b", 1, "B", 1, "p", 1, "s", 1, "(", 1, ")", 1, "{", 1, "}", 1, "[", 1, "]", 1, ">", 1, "<", 1, "`"", 1, "'", 1, "``", 1, "m", 1, "M", 1),
 	"g", Map("0", 1, "^", 1, "_", 1, "$", 1, "g", 1, "j", 1, "k", 1, "e", 1, "E", 1, "w", 1, "W", 1, "o", 1)
 )
 
-VISUAL_INSERT_OPERATORS := Map("c", true, "C", true)
-VISUAL_EXIT_OPERATORS := Map("d", true, "y", true, "x", true, "<", true, ">", true, "=", true)
+VISUAL_INSERT_OPERATORS := Map("c", true, "C", true, "I", true, "A", true)
+VISUAL_EXIT_OPERATORS := Map("d", true, "y", true, "x", true, "<", true, ">", true, "=", true, "u", true)
 
 ; ===============================================
 
@@ -241,11 +241,8 @@ Handle_ToNormal_Immediate(key) {
 
 	if (key = "<Esc>" || key = "<C-[>" || key = "<C-c>") {
 		SetMode("NORMAL")
-		return true
-	}
-
-	if (currentMode = "VISUAL" && key = "v") {
-		SetMode("NORMAL")
+		resetPendingTrackers()
+		resetVisualStateTrackers()
 		return true
 	}
 
@@ -305,16 +302,121 @@ Handle_VisualToNormal_Combo(key) {
 ; ==================================================
 
 ; ================== NORMAL TO VISUAL DETECTOR ==============
+setVisualModeType(key) {
+	global visualType
+	if (key = "v") {
+		visualType := "CHAR"
+	}
+	if (key = "V") {
+		visualType := "LINE"
+	}
+	if (key = "<C-v>") {
+		visualType := "BLOCK"
+	}
+}
+
+toggleVisualMode(key) {
+	global currentMode, visualType
+
+	if (key = "v") {
+		if (visualType = "CHAR") {
+			SetMode("NORMAL")
+			resetVisualStateTrackers()
+			return true
+		}
+		setVisualModeType(key)
+		return false
+	}
+
+	if (key = "V") {
+		if (visualType = "LINE") {
+			SetMode("NORMAL")
+			resetVisualStateTrackers()
+			return true
+		}
+		setVisualModeType(key)
+		return false
+	}
+
+	if (key = "<C-v>") {
+		if (visualType = "BLOCK") {
+			SetMode("NORMAL")
+			resetVisualStateTrackers()
+			return true
+		}
+		setVisualModeType(key)
+		return false
+	}
+}
 
 HandleNormalToVisual(key) {
 	global currentMode
+
 	if (currentMode != "NORMAL")
 		return false
+
 	if (key = "v" || key = "V" || key = "<C-v>") {
+		setVisualModeType(key)
 		setMode("VISUAL")
 		return true
 	}
+
 	return false
+}
+
+HandleVisualExpansion(key) {
+	global currentMode, visualPendingCount, visualPendingMotion, visualType
+	global DIRECT_MOTIONS, COUNTS, MOTION_STARTERS, MOTION_COMPLETIONS
+	global VISUAL_EXIT_OPERATORS, VISUAL_INSERT_OPERATORS
+
+	if (currentMode != "VISUAL") {
+		return false
+	}
+
+	; Visual to Visual keys
+
+	if (key = "v" || key = "V" || key = "<C-v>") {
+		if (toggleVisualMode(key)) {
+			return true
+		}
+		return false
+	}
+
+	if (key = "o") {
+		return false
+	}
+
+	if (visualPendingMotion = "" && MOTION_STARTERS.Has(key)) {
+		visualPendingMotion := key
+		return false
+	}
+
+	; ---------------- DIRECT MOTIONS ----------------
+	if (DIRECT_MOTIONS.Has(key)) {
+		resetVisualStateTrackers()
+		return false
+	}
+
+	; Visual to Normal keys
+
+	if (VISUAL_EXIT_OPERATORS.Has(key) && visualPendingMotion = "") {
+		SetMode("NORMAL")
+		resetVisualStateTrackers()
+		return true
+	}
+
+	; Visual to Insert keys
+
+	; ---------------- COUNT ACCUMULTION ----------------
+	if (COUNTS.Has(key)) {
+		; bare 0 is motion, not count
+		if (key != 0 || visualPendingCount != "") {
+			visualPendingCount .= key
+			return FALSE
+		}
+		; else fall through -> treat 0 as motion
+	}
+
 }
 
 ; ==================================================
