@@ -51,9 +51,9 @@ OPERATORS := Map(
 )
 
 DIRECT_MOTIONS := Map(
-	"h", true, "j", true, "k", true, "l", true,
-	"w", true, "b", true, "e", true, "G", true,
-	"W", true, "B", true, "E", true, "{", true,
+	"h", true, "H", true, "j", true, "k", true, "l", true,
+	"w", true, "L", true, "b", true, "e", true, "G", true,
+	"W", true, "M", true, "B", true, "E", true, "{", true,
 	"$", true, "^", true, "0", true, "}", true
 )
 
@@ -234,7 +234,7 @@ HandleNormalToInsert(key) {
 ; ================== INSERT/VISUAL TO NORMAL DETECTOR ==============
 
 Handle_ToNormal_Immediate(key) {
-	global currentMode
+	global currentMode, VISUAL_EXIT_OPERATORS
 
 	if (currentMode != "INSERT" && currentMode != "VISUAL")
 		return false
@@ -244,6 +244,14 @@ Handle_ToNormal_Immediate(key) {
 		resetPendingTrackers()
 		resetVisualStateTrackers()
 		return true
+	}
+
+	if (currentMode = "VISUAL") {
+		if (VISUAL_EXIT_OPERATORS.Has(key)) {
+			resetVisualStateTrackers()
+			setMode("NORMAL")
+			return true
+		}
 	}
 
 	return false
@@ -373,16 +381,16 @@ HandleVisualExpansion(key) {
 		return false
 	}
 
+	if (key = "o" || key = "O") {
+		return false
+	}
+
 	; Visual to Visual keys
 
 	if (key = "v" || key = "V" || key = "<C-v>") {
 		if (toggleVisualMode(key)) {
 			return true
 		}
-		return false
-	}
-
-	if (key = "o") {
 		return false
 	}
 
@@ -393,7 +401,8 @@ HandleVisualExpansion(key) {
 
 	; ---------------- DIRECT MOTIONS ----------------
 	if (DIRECT_MOTIONS.Has(key)) {
-		resetVisualStateTrackers()
+		visualPendingMotion := ""
+		visualPendingCount := ""
 		return false
 	}
 
@@ -405,7 +414,29 @@ HandleVisualExpansion(key) {
 		return true
 	}
 
+	if (visualPendingMotion != "") {
+
+		; for ip and ap
+		if (MOTION_COMPLETIONS.Has(visualPendingMotion) && MOTION_COMPLETIONS[visualPendingMotion].Has(key)) {
+			if ((visualPendingMotion = "i" || visualPendingMotion = "a") && key = "p") {
+				toggleVisualMode("V")
+			}
+			return false
+		}
+		visualPendingMotion := ""
+		visualPendingCount := ""
+		return false
+	}
+
 	; Visual to Insert keys
+	; key = I/A/c/C, visualPendingMotion = ""
+	if (visualPendingMotion = "") {
+		if (VISUAL_INSERT_OPERATORS.Has(key)) {
+			SetMode("INSERT")
+			resetVisualStateTrackers()
+			return true
+		}
+	}
 
 	; ---------------- COUNT ACCUMULTION ----------------
 	if (COUNTS.Has(key)) {
@@ -417,6 +448,8 @@ HandleVisualExpansion(key) {
 		; else fall through -> treat 0 as motion
 	}
 
+	resetVisualStateTrackers()
+	return false
 }
 
 ; ==================================================
@@ -554,6 +587,9 @@ LogLetter(key, *) {
 	; to NORMAL from INSERT or VISUAL
 	if (Handle_ToNormal_Immediate(char))
 		return
+	; VISUAL Expansion
+	if (HandleVisualExpansion(char))
+		return
 	; VISUAL to NORMAL combo
 	if (Handle_VisualToNormal_Combo(char))
 		return
@@ -596,8 +632,18 @@ LogPhysical(key, *) {
 	shifted := GetKeyState("Shift", "P")
 	char := shifted ? shiftMap.Get(key, key) : key
 	LogKey(char)
+	if (Handle_ToNormal_Immediate(char))
+		return
+
+	if (HandleVisualExpansion(char))
+		return
+
+	if (Handle_VisualToNormal_Combo(char))
+		return
+
 	if (HandleNormalToVisual(char))
 		return
+
 	if (HandleNormalToInsert(char))
 		return
 }
