@@ -54,14 +54,16 @@ DIRECT_MOTIONS := Map(
 	"h", true, "H", true, "j", true, "k", true, "l", true,
 	"w", true, "L", true, "b", true, "e", true, "G", true,
 	"W", true, "M", true, "B", true, "E", true, "{", true,
-	"$", true, "^", true, "0", true, "}", true
+	"$", true, "^", true, "0", true, "}", true, "(", true,
+	")", true
 )
 
 MOTION_STARTERS := Map(
 	"i", true, "a", true,
 	"f", true, "F", true,
 	"t", true, "T", true,
-	"s", true, "g", true
+	"s", true, "g", true,
+	"S", true, "[", true, "]", true
 )
 
 IMMEDIATE_INSERT := Map(
@@ -84,11 +86,16 @@ COUNTS := Map(
 MOTION_COMPLETIONS := Map(
 	"i", Map("w", 1, "W", 1, "b", 1, "B", 1, "p", 1, "s", 1, "(", 1, ")", 1, "{", 1, "}", 1, "[", 1, "]", 1, ">", 1, "<", 1, "`"", 1, "'", 1, "``", 1),
 	"a", Map("w", 1, "W", 1, "b", 1, "B", 1, "p", 1, "s", 1, "(", 1, ")", 1, "{", 1, "}", 1, "[", 1, "]", 1, ">", 1, "<", 1, "`"", 1, "'", 1, "``", 1, "m", 1, "M", 1),
-	"g", Map("0", 1, "^", 1, "_", 1, "$", 1, "g", 1, "j", 1, "k", 1, "e", 1, "E", 1, "w", 1, "W", 1, "o", 1)
+	"g", Map("0", 1, "^", 1, "_", 1, "$", 1, "g", 1, "j", 1, "k", 1, "e", 1, "E", 1, "w", 1, "W", 1, "o", 1),
+	"[", Map("[", 1, "]", 1, "{", 1, "}", 1, "m", 1, "M", 1),
+	"]", Map("[", 1, "]", 1, "{", 1, "}", 1, "m", 1, "M", 1)
 )
 
 VISUAL_INSERT_OPERATORS := Map("c", true, "C", true, "I", true, "A", true)
-VISUAL_EXIT_OPERATORS := Map("d", true, "y", true, "x", true, "<", true, ">", true, "=", true, "u", true)
+VISUAL_EXIT_OPERATORS := Map(
+	"d", true, "y", true, "x", true,
+	"<", true, ">", true, "=", true,
+	"u", true, "U", true)
 
 keyBindings := Map(
 	" ee", true,
@@ -414,13 +421,19 @@ HandleVisualExpansion(key) {
 		return false
 	}
 
+	if (visualPendingMotion = "S") {
+		SetMode("NORMAL")
+		resetVisualStateTrackers
+		return true
+	}
+
 	if (visualPendingMotion = "" && MOTION_STARTERS.Has(key)) {
 		visualPendingMotion := key
 		return false
 	}
 
 	; ---------------- DIRECT MOTIONS ----------------
-	if (DIRECT_MOTIONS.Has(key)) {
+	if (visualPendingMotion = "" && DIRECT_MOTIONS.Has(key)) {
 		visualPendingMotion := ""
 		visualPendingCount := ""
 		return false
@@ -428,7 +441,7 @@ HandleVisualExpansion(key) {
 
 	; Visual to Normal keys
 
-	if (VISUAL_EXIT_OPERATORS.Has(key) && visualPendingMotion = "") {
+	if (VISUAL_EXIT_OPERATORS.Has(key) && visualpendingmotion = "") {
 		SetMode("NORMAL")
 		resetVisualStateTrackers()
 		return true
@@ -441,6 +454,8 @@ HandleVisualExpansion(key) {
 			if ((visualPendingMotion = "i" || visualPendingMotion = "a") && key = "p") {
 				toggleVisualMode("V")
 			}
+			visualPendingMotion := ""
+			visualPendingCount := ""
 			return false
 		}
 		visualPendingMotion := ""
@@ -541,7 +556,7 @@ buildKeyCombos(keys) {
 
 	loop maxLen {
 		len := A_Index
-		if (len < 3)
+		if (len < 2)
 			continue
 
 		combo := ""
@@ -570,7 +585,7 @@ LogKey(char, *) {
 	entry := { index: keyIndex, time: time, char: char, mode: currentMode, gate: GateActive }
 	keys.Push(entry)
 
-	if (keys.Length >= 3) {
+	if (keys.Length >= 2) {
 		combos := buildKeyCombos(keys)
 
 		if (GateActive) {
@@ -613,7 +628,7 @@ FlushKeys() {
 			break
 	}
 
-	FileAppend("<MODE: " activeMode ">`n", logFile)
+	; FileAppend("<MODE: " activeMode ">`n", logFile)
 
 	timelinePos := 1
 	while (
@@ -636,7 +651,13 @@ FlushKeys() {
 	}
 	FileAppend("<MODE: " currentMode ">`n", logFile)
 	FileAppend("`n", logFile)
-
+	FileAppend("pendingOperator: " pendingOperator "`n", logFile)
+	FileAppend("pendingMotion: " pendingMotion "`n", logFile)
+	FileAppend("pendingCount: " pendingCount "`n", logFile)
+	FileAppend("visualPendingMotion: " visualPendingMotion "`n", logFile)
+	FileAppend("visualType: " visualType "`n", logFile)
+	FileAppend("visualPendingCount: " visualPendingCount "`n", logFile)
+	FileAppend("`n", logFile)
 	keys := []   ; reset buffer after flush
 	; lastLoggedMode := ""  ; force mode header next time
 }
