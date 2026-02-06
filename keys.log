@@ -1,0 +1,26 @@
+---- burst ----
+20:19:43 | d | NORMAL | 1
+20:19:43 | e | NORMAL | 1
+20:19:43 | l | NORMAL | 1
+20:19:43 | <Space> | NORMAL | 1
+20:19:44 | . | NORMAL | 1
+20:19:44 | \ | NORMAL | 1
+20:19:45 | k | NORMAL | 1
+20:19:45 | e | NORMAL | 1
+20:19:45 | y | NORMAL | 1
+20:19:45 | s | NORMAL | 1
+20:19:45 | <Tab> | NORMAL | 1
+20:19:46 | <Enter> | NORMAL | 1
+20:19:48 | g | NORMAL | 1
+20:19:48 | i | NORMAL | 1
+20:19:48 | t | NORMAL | 1
+20:19:48 | <Space> | NORMAL | 1
+<MODE: NORMAL>
+
+pendingOperator: y
+pendingMotion: 
+pendingCount: 
+visualPendingMotion: 
+visualType: 
+visualPendingCount: 
+

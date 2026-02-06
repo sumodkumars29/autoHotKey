@@ -96,29 +96,39 @@ VISUAL_INSERT_OPERATORS := Map("c", true, "C", true, "I", true, "A", true)
 VISUAL_EXIT_OPERATORS := Map(
 	"d", true, "y", true, "x", true,
 	"<", true, ">", true, "=", true,
-	"u", true, "U", true)
+	"u", true, "U", true, "~", true)
 
-keyBindings := Map(
-	" ee", true,
-	" er", true,
-	" ff", true,
-	" fs", true,
-	" fr", true,
-	" fc", true,
-	" myt", true,
+gateEntryBindings := Map(
+	" ee", "NVIMTREE",
+	" er", "NVIMTREE",
+	" ff", "TELESCOPE",
+	" fs", "TELESCOPE",
+	" fr", "TELESCOPE",
+	" fc", "TELESCOPE",
+	" myt", "TERMINAL",
 )
 
-escapeCombos := Map(
-	"<Esc><Esc>", true,
-	"<C-[><C-[>", true,
-	"<Enter>", true,
-	"<C-c>", true,
-	" ee", true,
-	" cmyt", true
+gateEscapeCombos := Map(
+	"TELESCOPE", Map(
+		"<Enter>", 1,
+		"<C-c>", 1,
+		"<Esc><Esc>", 1,
+		"<C-[><C-[>", 1
+	),
+	"TERMINAL", Map(
+		" cmyt", 1,
+		"exit<Enter>", 1
+	),
+	"NVIMTREE", Map(
+		" ee", 1,
+		" ef", 1,
+		"<Enter>", 1
+	)
 )
 
-GateActive := false
-
+activeUI := ""
+gateActive := false
+terminalExitArmed := false
 ; ===============================================
 
 ; ================= RESET TRACKER VARIABLES ======================
@@ -572,33 +582,65 @@ buildKeyCombos(keys) {
 }
 
 hasMatchingKeybind(combos, keyBindings) {
+	global activeUI, terminalExitArmed, gateActive
 	for len, combo in combos {
-		if (keyBindings.Has(combo))
+		if (keyBindings.Has(combo)) {
+			if (!gateActive) {
+				activeUI := gateEntryBindings[combo]
+			}
+			if (gateActive && activeUI = "TERMINAL" && combo = "exit<Enter>") {
+				terminalExitArmed := true
+				return false
+			}
 			return true
+		}
 	}
 	return false
 }
 
+comboReset() {
+	global activeUI, terminalExitArmed, gateActive
+	resetPendingTrackers()
+	resetVisualStateTrackers()
+	activeUI := ""
+	terminalExitArmed := false
+	gateActive := false
+}
+
 LogKey(char, *) {
-	global keys, maxKeys, idleMs, idleTimer, keyIndex, currentMode, GateActive
+	global keys, maxKeys, idleMs, idleTimer, keyIndex, currentMode
+	global gateActive, activeUI, gateEntryBindings, gateEscapeCombos, terminalExitArmed
 
 	keyIndex++
 	time := FormatTime(, "HH:mm:ss")
-	entry := { index: keyIndex, time: time, char: char, mode: currentMode, gate: GateActive }
+	entry := { index: keyIndex, time: time, char: char, mode: currentMode, gate: gateActive }
 	keys.Push(entry)
 
 	if (keys.Length >= 2) {
 		combos := buildKeyCombos(keys)
 
-		if (GateActive) {
-			if (hasMatchingKeybind(combos, escapeCombos)) {
-				GateActive := false
-				keys := []
+		if (gateActive) {
+			if (activeUI = "TERMINAL" && terminalExitArmed = true) {
+				comboReset()
+				return
+			}
+			exitMap := gateEscapeCombos[activeUI]
+			; 1 key exit (Enter, Ctrl-c, etc.)
+			last := keys[keys.Length].char
+			if (exitMap.Has(last)) {
+				comboReset()
+				return
+			}
+			; 2 - 5 keys exit (<Esc><Esc>, " cmyt", <Ctrl-[><Ctrl-[>, etc.)
+			if (hasMatchingKeybind(combos, exitMap)) {
+				comboReset()
+				return
 			}
 			return
 		}
-		if (hasMatchingKeybind(combos, keyBindings)) {
-			GateActive := true
+
+		if (hasMatchingKeybind(combos, gateEntryBindings)) {
+			gateActive := true
 			return
 		}
 	}
@@ -678,7 +720,7 @@ LogLetter(key, *) {
 	; INSERT or VISUAL -> NORMAL detection
 	LogKey(char)
 	; to NORMAL from INSERT or VISUAL
-	if (!GateActive) {
+	if (!gateActive) {
 		if (Handle_ToNormal_Immediate(char))
 			return
 		; VISUAL Expansion
@@ -726,7 +768,7 @@ LogPhysical(key, *) {
 	shifted := GetKeyState("Shift", "P")
 	char := shifted ? shiftMap.Get(key, key) : key
 	LogKey(char)
-	if (!GateActive) {
+	if (!gateActive) {
 		if (Handle_ToNormal_Immediate(char))
 			return
 
@@ -758,26 +800,26 @@ Hotkey "~*RWin", (*) => LogKey("<Win>")
 ; ---------------------------------
 Hotkey "~*Escape", (*) => (
 	LogKey("<Esc>"),
-	(!GateActive && Handle_ToNormal_Immediate("<Esc>"))
+	(!gateActive && Handle_ToNormal_Immediate("<Esc>"))
 	; HandleInsertToNormal_Immediate("<Esc>"),
 )
 
 Hotkey "~*^[", (*) => (
 	; HandleInsertToNormal_Immediate("<C-[>"),
 	LogKey("<C-[>"),
-	(!GateActive && Handle_ToNormal_Immediate("<C-[>"))
+	(!gateActive && Handle_ToNormal_Immediate("<C-[>"))
 )
 
 Hotkey "~*^c", (*) => (
 	; HandleInsertToNormal_Immediate("<C-[>"),
 	LogKey("<C-c>"),
-	(!GateActive && Handle_ToNormal_Immediate("<C-c>"))
+	(!gateActive && Handle_ToNormal_Immediate("<C-c>"))
 )
 
 Hotkey "~*^o", (*) => (
 	; HandleInsertToNormal_Immediate("<C-[>"),
 	LogKey("<C-o>"),
-	(!GateActive && HandleNormalToInsert("<C-o>"))
+	(!gateActive && HandleNormalToInsert("<C-o>"))
 )
 
 HotIf

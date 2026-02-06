@@ -2,15 +2,14 @@ e $VIMRUNTIME/lua/vim/hl.lua
 ; vanilla nvim -> open the file "hl.lua" located at C:\Program Files\Neovim\share/nvim/runtime/lua/vim
 ; if such a file does not exist, one is created
 
+hello
 
 :lua print(vim.api.nvim_buf_get_name(0))
 -- use the above command to get the full path to the file being edited/focused
 
-TESTING AGAIN
-The
-then 
-now
 
+testing <C-[><C-[> also <C-c>
+now for TELESCOPE
 {
 [running test
 again]
@@ -33,13 +32,7 @@ THIS is the fourth!
 THIS is the fourth!
   [is the]
 
-{
-[running test
-again]
-  { THIS IS THE THIRD LINE.
-  hello }
-this is the fourth line.
-}
+runing intermediary tests.
 
 {
   [running test
@@ -55,11 +48,11 @@ this is the fourth line.
 :echo $VIMRUNTIME -> C:\Program Files\Neovim\share/nvim/runtime
 
 
+hello
 
 :lua print(vim.env.VIMRUNTIME) -> C:\Program Files\Neovim\share/nvim/runtime
 
 :execute 'edit ' .. vim.env.VIMRUNTIME .. '/lua/vim/highlight.lua'
-
 
 :echo join(split(&runtimepath, ','), "\n")
 OR
