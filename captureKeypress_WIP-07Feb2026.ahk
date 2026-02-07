@@ -1,6 +1,6 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Force
-;30Jan
+;07 Feb
 
 ; ========= NEOVIM ONLY =========
 
@@ -117,7 +117,7 @@ gateEscapeCombos := Map(
 	),
 	"TERMINAL", Map(
 		" cmyt", 1,
-		"exit<Enter>", 1
+		; "exit<Enter>", 1
 	),
 	"NVIMTREE", Map(
 		" ee", 1,
@@ -588,10 +588,10 @@ hasMatchingKeybind(combos, keyBindings) {
 			if (!gateActive) {
 				activeUI := gateEntryBindings[combo]
 			}
-			if (gateActive && activeUI = "TERMINAL" && combo = "exit<Enter>") {
-				terminalExitArmed := true
-				return false
-			}
+			; if (gateActive && activeUI = "TERMINAL" && combo = "exit<Enter>") {
+			; 	terminalExitArmed := true
+			; 	return false
+			; }
 			return true
 		}
 	}
@@ -607,6 +607,10 @@ comboReset() {
 	gateActive := false
 }
 
+RemoveToolTip() {
+	ToolTip
+}
+
 LogKey(char, *) {
 	global keys, maxKeys, idleMs, idleTimer, keyIndex, currentMode
 	global gateActive, activeUI, gateEntryBindings, gateEscapeCombos, terminalExitArmed
@@ -620,7 +624,7 @@ LogKey(char, *) {
 		combos := buildKeyCombos(keys)
 
 		if (gateActive) {
-			if (activeUI = "TERMINAL" && terminalExitArmed = true) {
+			if (activeUI = "TERMINAL" && terminalExitArmed) {
 				comboReset()
 				return
 			}
@@ -628,17 +632,19 @@ LogKey(char, *) {
 			; This is another route, to handle mode transition capture till exiting FloatingTerminal
 			; if this is chosen, remove [activeUI = "TERMINAL"] condition from hasMatchingKeybind().
 			; if this is chosen, remove ["exit<Enter>", 1] from gateEscapeCombos
-			;
-			; if (activeUI = "TERMINAL") {
-			;   if (hasMatchingKeybind(combos, Map("exit<Enter>", 1))) {
-			;     terminalExitArmed := true
-			;     return
-			;   }
-			; }
+
+			if (activeUI = "TERMINAL" && !terminalExitArmed) {
+				if (hasMatchingKeybind(combos, Map("exit<Enter>", 1))) {
+					terminalExitArmed := true
+					return
+				}
+			}
 
 			exitMap := gateEscapeCombos[activeUI]
 			; 1 key exit (Enter, Ctrl-c, etc.)
 			last := keys[keys.Length].char
+			ToolTip "RAW:[" keys[keys.Length].char "] NORM:[" last "]"
+			SetTimer(RemoveToolTip, -800)
 			if (exitMap.Has(last)) {
 				comboReset()
 				return
