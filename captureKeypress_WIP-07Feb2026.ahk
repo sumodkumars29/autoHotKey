@@ -29,6 +29,7 @@ keyIndex := 0
 
 currentMode := "NORMAL"
 opTimerMs := 1000       ; operator window
+lastlogTime := A_TickCount
 
 lastInsertKey := ""
 lastInsertTick := 0
@@ -672,7 +673,7 @@ LogKey(char, *) {
 }
 
 FlushKeys() {
-	global keys, logFile, modeTimeline
+	global keys, logFile, modeTimeline, lastlogTime
 
 	if (keys.Length = 0)
 		return
@@ -720,7 +721,9 @@ FlushKeys() {
 	FileAppend("visualType: " visualType "`n", logFile)
 	FileAppend("visualPendingCount: " visualPendingCount "`n", logFile)
 	FileAppend("activeUI: " activeUI "`n", logFile)
+	FileAppend("logTime: " (A_TickCount - lastlogTime) "`n", logFile)
 	FileAppend("`n", logFile)
+	lastlogTime := A_TickCount
 	keys := []   ; reset buffer after flush
 	; lastLoggedMode := ""  ; force mode header next time
 }
