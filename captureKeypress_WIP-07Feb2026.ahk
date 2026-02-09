@@ -621,6 +621,10 @@ LogKey(char, *) {
 	entry := { index: keyIndex, time: time, char: char, mode: currentMode, gate: gateActive }
 	keys.Push(entry)
 
+	; reset one-shot timer
+	SetTimer(FlushKeys, 0)
+	SetTimer(FlushKeys, -idleMs)
+
 	if (keys.Length >= 2) {
 		combos := buildKeyCombos(keys)
 
@@ -667,14 +671,12 @@ LogKey(char, *) {
 	if (keys.Length > maxKeys)
 		keys.RemoveAt(1)
 
-	; reset one-shot timer
-	SetTimer(FlushKeys, 0)
-	SetTimer(FlushKeys, -idleMs)
 }
 
 FlushKeys() {
 	global keys, logFile, modeTimeline, lastlogTime
 
+	time := FormatTime(, "HH:mm:ss")
 	if (keys.Length = 0)
 		return
 
@@ -714,16 +716,17 @@ FlushKeys() {
 	}
 	FileAppend("<MODE: " currentMode ">`n", logFile)
 	FileAppend("`n", logFile)
-	FileAppend("pendingOperator: " pendingOperator "`n", logFile)
-	FileAppend("pendingMotion: " pendingMotion "`n", logFile)
-	FileAppend("pendingCount: " pendingCount "`n", logFile)
-	FileAppend("visualPendingMotion: " visualPendingMotion "`n", logFile)
-	FileAppend("visualType: " visualType "`n", logFile)
-	FileAppend("visualPendingCount: " visualPendingCount "`n", logFile)
+	; FileAppend("pendingOperator: " pendingOperator "`n", logFile)
+	; FileAppend("pendingMotion: " pendingMotion "`n", logFile)
+	; FileAppend("pendingCount: " pendingCount "`n", logFile)
+	; FileAppend("visualPendingMotion: " visualPendingMotion "`n", logFile)
+	; FileAppend("visualType: " visualType "`n", logFile)
+	; FileAppend("visualPendingCount: " visualPendingCount "`n", logFile)
 	FileAppend("activeUI: " activeUI "`n", logFile)
-	FileAppend("logTime: " (A_TickCount - lastlogTime) "`n", logFile)
+	FileAppend("time of flush: " time "`n", logFile)
+	; FileAppend("logTime: " (A_TickCount - lastlogTime) "`n", logFile)
 	FileAppend("`n", logFile)
-	lastlogTime := A_TickCount
+	; lastlogTime := A_TickCount
 	keys := []   ; reset buffer after flush
 	; lastLoggedMode := ""  ; force mode header next time
 }
