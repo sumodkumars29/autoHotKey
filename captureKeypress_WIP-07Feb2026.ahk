@@ -101,7 +101,7 @@ VISUAL_EXIT_OPERATORS := Map(
 
 gateEntryBindings := Map(
 	" ee", "NVIMTREE",
-	" er", "NVIMTREE",
+	" ef", "NVIMTREE",
 	" ff", "TELESCOPE",
 	" fs", "TELESCOPE",
 	" fr", "TELESCOPE",
@@ -621,9 +621,15 @@ LogKey(char, *) {
 	entry := { index: keyIndex, time: time, char: char, mode: currentMode, gate: gateActive }
 	keys.Push(entry)
 
+	; brought this up from the bottom of the fuction to ensure that it triggers for
+	; every keypress and is not passed over due to the 'return' statements
 	; reset one-shot timer
 	SetTimer(FlushKeys, 0)
+	; this triggers the 5 sec timer
 	SetTimer(FlushKeys, -idleMs)
+
+	if (keys.Length > maxKeys)
+		keys.RemoveAt(1)
 
 	if (keys.Length >= 2) {
 		combos := buildKeyCombos(keys)
@@ -667,10 +673,6 @@ LogKey(char, *) {
 			return
 		}
 	}
-
-	if (keys.Length > maxKeys)
-		keys.RemoveAt(1)
-
 }
 
 FlushKeys() {
