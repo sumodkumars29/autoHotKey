@@ -131,6 +131,7 @@ activeUI := ""
 gateActive := false
 terminalExitArmed := false
 NvimTreeGui := 0
+nvimTreeWatcher := false
 ; ===============================================
 
 ; ================= RESET TRACKER VARIABLES ======================
@@ -584,7 +585,7 @@ buildKeyCombos(keys) {
 }
 
 hasMatchingKeybind(combos, keyBindings) {
-	global activeUI, terminalExitArmed, gateActive
+	global activeUI, terminalExitArmed, gateActive, nvimTreeWatcher
 	for len, combo in combos {
 		if (keyBindings.Has(combo)) {
 			if (!gateActive) {
@@ -594,6 +595,10 @@ hasMatchingKeybind(combos, keyBindings) {
 			; 	terminalExitArmed := true
 			; 	return false
 			; }
+
+			if (activeUI = "NVIMTREE") {
+				nvimTreeWatcher := true
+			}
 			return true
 		}
 	}
@@ -601,7 +606,7 @@ hasMatchingKeybind(combos, keyBindings) {
 }
 
 comboReset() {
-	global activeUI, terminalExitArmed, gateActive, NvimTreeGui
+	global activeUI, terminalExitArmed, gateActive, NvimTreeGui, nvimTreeWatcher
 	resetPendingTrackers()
 	resetVisualStateTrackers()
 	activeUI := ""
@@ -636,10 +641,10 @@ ShowNvimTreeWarning() {
 	}
 
 	NvimTreeGui := Gui("+AlwaysOnTop -Caption +ToolWindow")
-	NvimTreeGui.BackColor := "FF0000" ; red
+	NvimTreeGui.BackColor := "8F1728" ; red
 
-	NvimTreeGui.SetFont("s14 Bold cFFFFFF", "Segoe UI")
-	NvimTreeGui.AddText("Center w320 h80", "⚠ NVIM-TREE ACTIVE ⚠`nPress <Enter> to RESET`n")
+	NvimTreeGui.SetFont("s10 Bold cFFFFFF", "Segoe UI")
+	NvimTreeGui.AddText("Center w320 h70", "⚠ NVIM-TREE ACTIVE ⚠`nUndo the last action ⚠`nPress <Enter> in 4 seconds to RESET`n")
 
 	if (!hwnd)
 		return
@@ -648,7 +653,7 @@ ShowNvimTreeWarning() {
 
 	; GUI dimensions
 	width := 360
-	height := 100
+	height := 80
 
 	; Center inside active window
 	x := winX + (winW - width) // 2
@@ -660,7 +665,7 @@ ShowNvimTreeWarning() {
 
 LogKey(char, *) {
 	global keys, maxKeys, idleMs, idleTimer, keyIndex, currentMode
-	global gateActive, activeUI, gateEntryBindings, gateEscapeCombos, terminalExitArmed
+	global gateActive, activeUI, gateEntryBindings, gateEscapeCombos, terminalExitArmed, nvimTreeWatcher
 
 	keyIndex++
 	time := FormatTime(, "HH:mm:ss")
@@ -703,21 +708,29 @@ LogKey(char, *) {
 			ToolTip "RAW:[" keys[keys.Length].char "] NORM:[" last "]"
 			SetTimer(RemoveToolTip, -800)
 
-			if (exitMap.Has(last)) {
-				comboReset()
-				return
+			if (activeUI = "NVIMTREE" && nvimTreeWatcher) {
+				if (last = "<Enter>") {
+					ShowNvimTreeWarning()
+					nvimTreeWatcher := false
+					return
+				}
 			}
 
-			; setting up a "deactivate" warning for NVIMTREE
-			if (gateActive && activeUI = "NVIMTREE") {
-				ShowNvimTreeWarning()
+			if (exitMap.Has(last)) {
+				; setting up a "deactivate" warning for NVIMTREE
+				comboReset()
+				return
 			}
 
 			; 2 - 5 keys exit (<Esc><Esc>, " cmyt", <Ctrl-[><Ctrl-[>, etc.)
 			if (hasMatchingKeybind(combos, exitMap)) {
 				comboReset()
+				if (activeUI = "NVIMTREE" && nvimTreeWatcher) {
+					nvimTreeWatcher := false
+				}
 				return
 			}
+
 			return
 		}
 
@@ -779,6 +792,7 @@ FlushKeys() {
 	; FileAppend("visualPendingCount: " visualPendingCount "`n", logFile)
 	FileAppend("activeUI: " activeUI "`n", logFile)
 	FileAppend("time of flush: " time "`n", logFile)
+	FileAppend("keyIndex: " keyIndex "`n", logFile)
 	; FileAppend("logTime: " (A_TickCount - lastlogTime) "`n", logFile)
 	FileAppend("`n", logFile)
 	; lastlogTime := A_TickCount
