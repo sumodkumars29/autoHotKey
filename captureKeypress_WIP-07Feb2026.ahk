@@ -106,7 +106,7 @@ gateEntryBindings := Map(
 	" fs", "TELESCOPE",
 	" fr", "TELESCOPE",
 	" fc", "TELESCOPE",
-	" myt", "TERMINAL",
+	" myt", "FLOATTERM",
 )
 
 gateEscapeCombos := Map(
@@ -116,7 +116,7 @@ gateEscapeCombos := Map(
 		"<Esc><Esc>", 1,
 		"<C-[><C-[>", 1
 	),
-	"TERMINAL", Map(
+	"FLOATTERM", Map(
 		" cmyt", 1,
 		; "exit<Enter>", 1
 	),
@@ -589,7 +589,7 @@ hasMatchingKeybind(combos, keyBindings) {
 			if (!gateActive) {
 				activeUI := gateEntryBindings[combo]
 			}
-			; if (gateActive && activeUI = "TERMINAL" && combo = "exit<Enter>") {
+			; if (gateActive && activeUI = "FLOATTERM" && combo = "exit<Enter>") {
 			; 	terminalExitArmed := true
 			; 	return false
 			; }
@@ -635,16 +635,16 @@ LogKey(char, *) {
 		combos := buildKeyCombos(keys)
 
 		if (gateActive) {
-			if (activeUI = "TERMINAL" && terminalExitArmed) {
+			if (activeUI = "FLOATTERM" && terminalExitArmed) {
 				comboReset()
 				return
 			}
 
 			; This is another route, to handle mode transition capture till exiting FloatingTerminal
-			; if this is chosen, remove [activeUI = "TERMINAL"] condition from hasMatchingKeybind().
+			; if this is chosen, remove [activeUI = "FLOATTERM"] condition from hasMatchingKeybind().
 			; if this is chosen, remove ["exit<Enter>", 1] from gateEscapeCombos
 
-			if (activeUI = "TERMINAL" && !terminalExitArmed) {
+			if (activeUI = "FLOATTERM" && !terminalExitArmed) {
 				if (hasMatchingKeybind(combos, Map("exit<Enter>", 1))) {
 					terminalExitArmed := true
 					return
